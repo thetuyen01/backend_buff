@@ -1,43 +1,61 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+from django.core.paginator import Paginator, EmptyPage
 from django.db.models import Q
 from .models import Video
-from .serializers import VideoSerializers 
+from .serializers import VideoSerializers
+from django.shortcuts import get_object_or_404
 
 class VideoView(APIView):
     def get(self, request):
+        categoriesId = request.GET.get('categoriesId', None)
         search = request.GET.get('search', None)
-        pageSize = request.GET.get('pageSize', 10)  # Mặc định là 10 nếu không được chỉ định
-        pageIndex = request.GET.get('pageIndex', 1)  # Mặc định là trang 1 nếu không được chỉ định
+        pageSize = request.GET.get('pageSize', 10)
+        pageIndex = request.GET.get('pageIndex', 1)
+
+        # Validate pageSize and pageIndex
         try:
             pageSize = int(pageSize)
             pageIndex = int(pageIndex)
         except ValueError:
-            return Response({'error': 'pageSize and page number must be valid integers.'}, status=status.HTTP_400_BAD_REQUEST)
-        
-        queryset = Video.objects.filter()
+            return Response({'error': 'pageSize and pageIndex must be valid integers.'}, status=status.HTTP_400_BAD_REQUEST)
 
+        # Build the queryset based on filters
+        queryset = Video.objects.all()
         if search:
             queryset = queryset.filter(Q(title__icontains=search) | Q(description__icontains=search))
+        if categoriesId:
+            queryset = queryset.filter(category__id=int(categoriesId))  # Corrected field name
 
-        paginator = Paginator(queryset.order_by('id'), per_page=pageSize)
-        
-        try:
-            page = paginator.page(pageIndex)
-            serializer = VideoSerializers(page.object_list, many=True)
-            data_to_cache = {
-                'data': serializer.data,
-                'pageSize': pageSize,
-                'pageIndex': pageIndex,
-                'total': queryset.count()
-            }
-            return Response(data_to_cache, status=status.HTTP_200_OK)
-        except (PageNotAnInteger, EmptyPage):
+        # Check if the queryset is empty after filtering
+        if not queryset.exists():
             return Response({
                 'data': [],
                 'pageSize': pageSize,
                 'pageIndex': pageIndex,
-                'total': queryset.count() 
+                'total': 0
             }, status=status.HTTP_200_OK)
+
+        # Paginate the queryset
+        paginator = Paginator(queryset.order_by('id'), per_page=pageSize)
+        try:
+            page = paginator.page(pageIndex)
+        except EmptyPage:
+            page = paginator.page(paginator.num_pages)  # Handle the case where pageIndex is out of range
+
+        # Serialize the data
+        serializer = VideoSerializers(page.object_list, many=True)
+        data_to_cache = {
+            'data': serializer.data,
+            'pageSize': pageSize,
+            'pageIndex': pageIndex,
+            'total': paginator.count
+        }
+        return Response(data_to_cache, status=status.HTTP_200_OK)
+
+class VideoDetailView(APIView):
+    def get(self, request, video_id):
+        video = get_object_or_404(Video, id=video_id)
+        serializer = VideoSerializers(video)
+        return Response(serializer.data, status=status.HTTP_200_OK)
