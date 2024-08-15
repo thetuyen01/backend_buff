@@ -41,7 +41,9 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'videos',
     'categories',
-    'banner'
+    'banner',
+    'sticky',
+    'search'
 ]
 
 MIDDLEWARE = [

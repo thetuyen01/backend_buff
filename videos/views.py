@@ -4,12 +4,13 @@ from rest_framework import status
 from django.core.paginator import Paginator, EmptyPage
 from django.db.models import Q
 from .models import Video
+from categories.models import Category
 from .serializers import VideoSerializers
 from django.shortcuts import get_object_or_404
 
 class VideoView(APIView):
     def get(self, request):
-        categoriesId = request.GET.get('categoriesId', None)
+        categoriesSlug = request.GET.get('categoriesSlug', None)
         search = request.GET.get('search', None)
         pageSize = request.GET.get('pageSize', 10)
         pageIndex = request.GET.get('pageIndex', 1)
@@ -25,8 +26,9 @@ class VideoView(APIView):
         queryset = Video.objects.all()
         if search:
             queryset = queryset.filter(Q(title__icontains=search) | Q(description__icontains=search))
-        if categoriesId:
-            queryset = queryset.filter(category__id=int(categoriesId))  # Corrected field name
+        if categoriesSlug:
+            categories = Category.objects.filter(slug=categoriesSlug).first()
+            queryset = queryset.filter(category__id=categories.id)  # Corrected field name
 
         # Check if the queryset is empty after filtering
         if not queryset.exists():
@@ -55,7 +57,7 @@ class VideoView(APIView):
         return Response(data_to_cache, status=status.HTTP_200_OK)
 
 class VideoDetailView(APIView):
-    def get(self, request, video_id):
-        video = get_object_or_404(Video, id=video_id)
+    def get(self, request, slug):
+        video = get_object_or_404(Video, slug=slug)
         serializer = VideoSerializers(video)
         return Response(serializer.data, status=status.HTTP_200_OK)
