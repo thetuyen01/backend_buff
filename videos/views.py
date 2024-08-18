@@ -7,6 +7,7 @@ from .models import Video
 from categories.models import Category
 from .serializers import VideoSerializers
 from django.shortcuts import get_object_or_404
+import random
 
 class VideoView(APIView):
     def get(self, request):
@@ -28,7 +29,10 @@ class VideoView(APIView):
             queryset = queryset.filter(Q(title__icontains=search) | Q(description__icontains=search))
         if categoriesSlug:
             categories = Category.objects.filter(slug=categoriesSlug).first()
-            queryset = queryset.filter(category__id=categories.id)  # Corrected field name
+            if not categories:
+                # Get a random category if no match is found
+                categories = random.choice(Category.objects.all())
+            queryset = queryset.filter(category__id=categories.id)
 
         # Check if the queryset is empty after filtering
         if not queryset.exists():
