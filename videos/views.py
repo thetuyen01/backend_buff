@@ -10,10 +10,10 @@ from django.shortcuts import get_object_or_404
 
 class VideoView(APIView):
     def get(self, request):
-        categoriesSlug = request.GET.get('categoriesSlug', None)
-        search = request.GET.get('search', None)
-        pageSize = request.GET.get('pageSize', 10)
-        pageIndex = request.GET.get('pageIndex', 1)
+        categoriesSlug =request.query_params.get('search[params][categoriesSlug]')
+        search = request.query_params.get('search[params][search]')
+        pageSize = request.query_params.get('search[params][pageSize]')
+        pageIndex = request.query_params.get('search[params][pageIndex]') 
 
         # Validate pageSize and pageIndex
         try:

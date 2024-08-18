@@ -6,7 +6,7 @@ from .serializers import StickySerializers
 
 class StickyView(APIView):
     def get(self, request):
-        position = request.GET.get('position', None)
+        position = request.query_params.get('search[params][position]')
         stickies = Sticky.objects.filter(position=position).first()
         serializers = StickySerializers(stickies)
         return Response(serializers.data, status=status.HTTP_200_OK)
