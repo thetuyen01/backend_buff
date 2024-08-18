@@ -1,6 +1,7 @@
 from django.db import models
 from categories.models import Category
 from django.utils.text import slugify
+from unidecode import unidecode
 
 class Video(models.Model):
     VIDEO_TYPE_CHOICES = [
@@ -10,6 +11,7 @@ class Video(models.Model):
     
     category = models.ForeignKey(Category, on_delete=models.CASCADE)
     title = models.CharField(max_length=100)
+    title_no_unidecode = models.CharField(max_length=200, blank=True, null=True)
     image = models.CharField(max_length=2000, blank=True, null=True)
     # server1
     url = models.CharField(max_length=2000, blank=True, null=True)
@@ -29,6 +31,7 @@ class Video(models.Model):
     def save(self, *args, **kwargs):
         if not self.slug:
             self.slug = slugify(self.title)
+        self.title_no_unidecode = unidecode(self.title).lower()
         super(Video, self).save(*args, **kwargs)
 
     def __str__(self):

@@ -2,19 +2,22 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from django.core.paginator import Paginator, EmptyPage
-from django.db.models import Q
+from django.db.models import Q, Value, CharField
 from .models import Video
 from categories.models import Category
 from .serializers import VideoSerializers
 from django.shortcuts import get_object_or_404
 import random
+from django.db.models.functions import Concat
+from unidecode import unidecode
 
 class VideoView(APIView):
     def get(self, request):
-        categoriesSlug =request.query_params.get('search[params][categoriesSlug]')
+        categoriesSlug = request.query_params.get('search[params][categoriesSlug]')
         search = request.query_params.get('search[params][search]')
         pageSize = request.query_params.get('search[params][pageSize]')
-        pageIndex = request.query_params.get('search[params][pageIndex]') 
+        pageIndex = request.query_params.get('search[params][pageIndex]')
+        topSearch = request.query_params.get('search[params][topSearch]')
 
         # Validate pageSize and pageIndex
         try:
@@ -25,14 +28,27 @@ class VideoView(APIView):
 
         # Build the queryset based on filters
         queryset = Video.objects.all()
+
+        if topSearch:
+            search = topSearch.replace('-', ' ')
+            categoriesSlug = None
+
         if search:
-            queryset = queryset.filter(Q(title__icontains=search) | Q(description__icontains=search))
+            normalized_search = unidecode(search).lower()
+            queryset = queryset.annotate(
+                title_no_diacritics=Concat(Value(""), 'title_no_unidecode', output_field=CharField()),
+                description_no_diacritics=Concat(Value(""), 'description', output_field=CharField())
+            ).filter(
+                Q(title_no_diacritics__icontains=normalized_search) |
+                Q(description_no_diacritics__icontains=normalized_search)
+            )
+
         if categoriesSlug:
-            categories = Category.objects.filter(slug=categoriesSlug).first()
-            if not categories:
+            category = Category.objects.filter(slug=categoriesSlug).first()
+            if not category:
                 # Get a random category if no match is found
-                categories = random.choice(Category.objects.all())
-            queryset = queryset.filter(category__id=categories.id)
+                category = random.choice(Category.objects.all())
+            queryset = queryset.filter(category__id=category.id)
 
         # Check if the queryset is empty after filtering
         if not queryset.exists():
